@@ -1,0 +1,441 @@
+
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.json.simple.JSONObject;
+import org.json.simple.JSONArray;
+import org.json.simple.parser.ParseException;
+import org.json.simple.parser.JSONParser;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+
+import java.util.Iterator;
+
+
+
+/**
+ * Servlet implementation class searchEngine
+ */
+@WebServlet("/searchEngine")
+public class searchEngine extends HttpServlet 
+{
+	public static final int FILE_COUNT = 44536;
+	
+	public static HashMap<String, Integer> term_termID = new HashMap<String, Integer>();
+    public static HashMap<Integer, HashMap<Integer, Float>> termid_tfidf = new HashMap<Integer, HashMap<Integer,Float>>();
+	public static HashSet<String> stop_words = new HashSet<String>();
+    public static JSONObject docid_url;
+
+	private static final long serialVersionUID = 1L;
+       
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public searchEngine() 
+    {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+	/**
+	 * @see Servlet#init(ServletConfig)
+	 */
+	public void init(ServletConfig config) throws ServletException 
+	{
+		// TODO Auto-generated method stub
+		System.out.println("INIT");
+		
+		// Initialize Map
+		initializeMaps();
+	}
+
+	/**
+	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException 
+	{
+		// TODO Auto-generated method stub
+		System.out.println("GET");
+		
+		// Get Parameters from Session
+        String userQuery = request.getParameter("userQuery").trim();
+        
+        if (userQuery == null || userQuery.isEmpty())
+        {
+        	// Return to Index.jsp
+        	request.getRequestDispatcher("/index.jsp").forward(request, response);
+        }
+        
+        // Process Request
+        System.out.println("User Request: " +  userQuery);
+        
+        Integer[] result = parseQuery(userQuery);
+        String [] urls = new String[result.length];
+        
+
+		for(int x = 0; x < result.length; x++)
+		{
+			//System.out.print(result[x] + ":   ");
+			String url = (String) ((JSONObject) docid_url.get(result[x].toString())).get("url");
+			//System.out.println(url);
+			urls[x] = url;
+		}
+		
+		for ( String item : urls)
+		{
+			System.out.println("Results: " +  item);
+		}
+		
+		
+		// Return To Index Page With Results Set
+        request.getRequestDispatcher("/index.jsp").forward(request, response);
+
+	}
+
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException 
+	{
+		// TODO Auto-generated method stub
+		System.out.println("Post");
+	}
+	
+	public void initializeMaps()
+	{
+		long startTime = System.currentTimeMillis();
+		
+		try 
+		{
+			// Create the hash map for term to termID
+			for (String line : Files.readAllLines(Paths.get("/home/carlislk/Documents/CS121/search_1/web_search_1/WebContent/term_termID.txt"))) 
+			{
+				int posSplit = line.indexOf(':');
+				String term = line.substring(0, posSplit);
+				int termID = Integer.parseInt(line.substring(posSplit+1));
+				term_termID.put(term, termID);
+			}
+			
+			// Createthe hash map for termID to docID/TFIDF
+			for (String line : Files.readAllLines(Paths.get("/home/carlislk/Documents/CS121/search_1/web_search_1/WebContent/term_docid-tfidf.txt"))) 
+			{
+				int termSplit = line.indexOf(':');
+				
+				int termID = Integer.parseInt(line.substring(1, termSplit));				
+				termid_tfidf.put(termID, new HashMap<Integer, Float>());
+				
+				String docIDList = line.substring(termSplit + 2, line.length()-2);
+				for( String pair : docIDList.split(","))
+				{
+					int equalSplitPos = pair.indexOf('=');
+					
+					int docID = Integer.parseInt(pair.substring(1, equalSplitPos));
+					float tfidfVal = Float.parseFloat(pair.substring(equalSplitPos+1));
+					
+					//System.out.println("Adding " + termID + " --> " + docID + " : " + tfidfVal);
+					
+					termid_tfidf.get(termID).put(docID, tfidfVal);
+				}
+			}
+			
+			for (String word : Files.readAllLines(Paths.get("/home/carlislk/Documents/CS121/search_1/web_search_1/WebContent/stop_words.txt")))
+				stop_words.add(word);
+			
+			// Create JSONObject containing docID to url
+			JSONParser parser = new JSONParser();
+			Object obj = parser.parse(new FileReader("/home/carlislk/Documents/CS121/search_1/web_search_1/WebContent/html_files.json"));
+			docid_url = (JSONObject) obj;
+						
+			long stopTime = System.currentTimeMillis();
+		    long elapsedTime = stopTime - startTime;
+		    System.out.println(elapsedTime / 1000.0 + " second runtime to build database");
+		    System.out.println();
+		    
+		} catch (IOException | ParseException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	static Integer[] parseMultiQuery(String queryText)
+	{
+		long startTime = System.currentTimeMillis();
+		
+		String stringToQuery = queryText;
+		int splitPos = stringToQuery.indexOf(' ');
+		
+		List<String> wordsToQuery = new ArrayList<String>();
+		List<Integer> termIDsToQuery = new ArrayList<Integer>();
+		
+		while(splitPos != -1)
+		{
+			String thisWord = stringToQuery.substring(0, splitPos);
+			
+			if(!stop_words.contains(thisWord))
+			{
+				wordsToQuery.add(thisWord);
+				termIDsToQuery.add(term_termID.get(thisWord));
+			}
+			
+			stringToQuery = stringToQuery.substring(splitPos+1);
+			splitPos = stringToQuery.indexOf(' ');
+		}
+		
+		if(!stop_words.contains(stringToQuery))
+		{
+			wordsToQuery.add(stringToQuery);
+			termIDsToQuery.add(term_termID.get(stringToQuery));
+		}
+		
+		System.out.println(wordsToQuery.toString());
+		System.out.println(termIDsToQuery.toString());
+		
+		Integer[][] docIDMatrix = new Integer[wordsToQuery.size()][10];
+		for(int i = 0; i < wordsToQuery.size(); i++)
+		{
+			Integer[] thisResult = parseQuery(wordsToQuery.get(i));
+			if(thisResult == null)
+			{
+				wordsToQuery.remove(i);
+				termIDsToQuery.remove(i);
+				if(i < wordsToQuery.size())
+					i--;
+				continue;
+			}
+			docIDMatrix[i] = thisResult;
+		}
+		
+		System.out.println();
+		for(int i = 0; i < wordsToQuery.size(); i++)
+		{
+			HashMap<Integer, Float> docID_tfidf = termid_tfidf.get(termIDsToQuery.get(i));
+			System.out.print(wordsToQuery.get(i) + "(" + termIDsToQuery.get(i) + "):  ");
+			for(int j = 0; j < docIDMatrix[i].length; j++)
+				System.out.print(" " + docIDMatrix[i][j].toString() + "(" + docID_tfidf.get(docIDMatrix[i][j]) + ")");
+			System.out.println();
+		}
+		
+		//System.out.println("Num terms to Query: " + wordsToQuery.size());
+		//System.out.println(docIDMatrix[0][0] + " " + docIDMatrix[1][0] + " " + docIDMatrix[2][0] + " " + docIDMatrix[3][0]);
+		HashMap<Integer, Float> combinedTFIDF = new HashMap<Integer, Float>();
+		// docIDMatrix in the order [term][resultNum]
+		// combinedTFIDF in the order [docID][cumulative tfidfValue]
+		for(int i = 0; i < wordsToQuery.size(); i++)
+		{
+			for(int j = 0; j < docIDMatrix[i].length; j++)
+			{
+				if(!combinedTFIDF.containsKey(docIDMatrix[i][j]))
+					combinedTFIDF.put(docIDMatrix[i][j], (float)0);
+			}
+		}
+	
+		System.out.println(combinedTFIDF.size() + " unique docIDs");
+		
+		for(int i = 0; i < termIDsToQuery.size(); i++)
+		{
+			Integer thisTermID = termIDsToQuery.get(i);
+			HashMap<Integer, Float> docID_tfidf = termid_tfidf.get(thisTermID);
+			
+			for(Integer docID : combinedTFIDF.keySet())
+			{
+				if(docID_tfidf.containsKey(docID))
+				{
+					float currVal = combinedTFIDF.get(docID);
+					float combinedVal = currVal + docID_tfidf.get(docID);
+					combinedTFIDF.put(docID, combinedVal);
+				}
+			}
+		}
+		
+		/*
+		System.out.print("------- " + wordsToQuery.get(0) + " " + wordsToQuery.get(1) + ":  ");
+		for(Integer doc : combinedTFIDF.keySet())
+			System.out.print(" " + doc + "(" + combinedTFIDF.get(doc) + ")");
+		System.out.println();
+		*/
+		
+		
+		// NOW SORT
+		int numTopResults = combinedTFIDF.size();
+		if(numTopResults > 10)
+			numTopResults = 10;
+		Integer[] topResults = new Integer[numTopResults];
+		Arrays.fill(topResults, -1);
+		
+		int i,j = numTopResults-1;
+		float currentTFIDF = 0;
+		
+		for(Integer doc : combinedTFIDF.keySet())
+		{
+			i = numTopResults-1;
+			currentTFIDF = combinedTFIDF.get(doc);
+			
+			/*System.out.println("This tfidf score is: " + currentTFIDF);
+			System.out.println("Current order is:");
+			for(int z = 0; z < topResults.length; z++)
+				System.out.print(" " + topResults[z] + "(" + combinedTFIDF.get(topResults[z]) + ")");
+			System.out.println();
+			*/
+			
+			while(i > 0 && (topResults[i - 1] == -1 || combinedTFIDF.get(topResults[i-1]) < currentTFIDF))
+				i--;
+			
+			if(topResults[i] == -1)
+				topResults[i] = doc;
+			else
+			{
+				if(currentTFIDF > combinedTFIDF.get(topResults[i]))
+				{
+					while(i > 0 && currentTFIDF > combinedTFIDF.get(topResults[i - 1]))
+						i--;
+					j = numTopResults-1;
+					while(j > i)
+					{
+						topResults[j] = topResults[j - 1];
+						j--;
+					}
+					topResults[i] = doc;
+				}
+			}
+			
+			/*System.out.println("NEW order is:");
+			for(int z = 0; z < topResults.length; z++)
+				System.out.print(" " + topResults[z] + "(" + combinedTFIDF.get(topResults[z]) + ")");
+			System.out.println();
+			*/
+		}
+		
+		
+				
+		System.out.print(wordsToQuery.get(0) + " " + wordsToQuery.get(1) + ":  ");
+		for(int z = 0; z < topResults.length; z++)
+			System.out.print(" " + topResults[z] + "(" + combinedTFIDF.get(topResults[z]) + ")");
+		
+		
+		long stopTime = System.currentTimeMillis();
+	    long elapsedTime = stopTime - startTime;
+	    System.out.println();
+	    System.out.println(elapsedTime / 1000.0 + " second runtime to find results for " + queryText);
+	    
+		
+		return topResults;
+	}
+	
+	
+	static Integer[] parseQuery(String queryText)
+	{
+		long startTime = System.currentTimeMillis();
+
+		queryText = queryText.toLowerCase();
+		
+		if(queryText.contains(" "))
+			return parseMultiQuery(queryText);
+		
+		int termID = -1;
+		if(term_termID.containsKey(queryText))
+			termID = term_termID.get(queryText);
+		
+		if(termID == -1)
+		{
+			System.out.println("Query term " + queryText + " not found");
+			return null;
+		}
+		
+				
+		int numTopResults = termid_tfidf.get(termID).size();
+		if(numTopResults > 10)
+			numTopResults = 10;
+		Integer[] topResults = new Integer[numTopResults];
+		Arrays.fill(topResults, -1);
+		
+		int i,j = numTopResults-1;
+		float currentTFIDF = 0;
+		
+		
+		int count = 0;
+		HashMap<Integer, Float> tfidf_list = termid_tfidf.get(termID);
+		for(Integer doc : tfidf_list.keySet())
+		{
+			i = numTopResults-1;
+			currentTFIDF = tfidf_list.get(doc);
+			
+			if(count < 0)
+			{
+				System.out.println("This tfidf score is: " + currentTFIDF);
+				System.out.println("Current order is:");
+				for(int z = 0; z < topResults.length; z++)
+					System.out.print(" " + topResults[z] + "(" + tfidf_list.get(topResults[z]) + ")");
+				System.out.println();
+			}
+			
+			while(i > 0 && (topResults[i - 1] == -1 || tfidf_list.get(topResults[i-1]) < currentTFIDF))
+				i--;
+			
+			if(topResults[i] == -1)
+				topResults[i] = doc;
+			else
+			{
+				if(currentTFIDF > tfidf_list.get(topResults[i]))
+				{
+					while(i > 0 && currentTFIDF > tfidf_list.get(topResults[i - 1]))
+						i--;
+					j = numTopResults-1;
+					while(j > i)
+					{
+						topResults[j] = topResults[j - 1];
+						j--;
+					}
+					topResults[i] = doc;
+				}
+			}
+			
+			if(count < 0)
+			{
+				System.out.println("NEW order is:");
+				for(int z = 0; z < topResults.length; z++)
+					System.out.print(" " + topResults[z] + "(" + tfidf_list.get(topResults[z]) + ")");
+				System.out.println();
+			}
+			count++;
+			
+		}
+		
+		/*for(int x = 0; x < numTopResults; x++)
+		{
+			System.out.print(topResults[x] + ":   ");
+			String url = (String) ((JSONObject) docid_url.get(topResults[x].toString())).get("url");
+			System.out.println(url);
+		}*/
+		
+		long stopTime = System.currentTimeMillis();
+	    long elapsedTime = stopTime - startTime;
+	    System.out.println(elapsedTime / 1000.0 + " second runtime to find results for " + queryText);
+	    
+	    return topResults;
+	}
+	
+
+}

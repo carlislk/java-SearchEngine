@@ -1,0 +1,6 @@
+127.0.0.1 - - [21/Mar/2016:17:47:12 -0700] "GET / HTTP/1.1" 404 969
+127.0.0.1 - - [21/Mar/2016:17:47:13 -0700] "GET /web_search_1/index.jsp HTTP/1.1" 200 1217
+127.0.0.1 - - [21/Mar/2016:17:47:13 -0700] "GET /favicon.ico HTTP/1.1" 404 991
+127.0.0.1 - - [21/Mar/2016:17:47:29 -0700] "GET /web_search_1/searchEngine?userQuery= HTTP/1.1" 200 1265
+127.0.0.1 - - [21/Mar/2016:17:47:42 -0700] "GET /web_search_1/searchEngine?userQuery=graph+algorithms HTTP/1.1" 200 2606
+127.0.0.1 - - [21/Mar/2016:17:47:53 -0700] "GET /web_search_1/searchEngine?userQuery=graph+algorithms HTTP/1.1" 200 2606

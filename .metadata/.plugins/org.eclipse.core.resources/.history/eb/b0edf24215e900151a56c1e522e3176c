@@ -1,0 +1,45 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+        <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+        
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+
+<h2> Search Engine</h2>
+
+<form action="searchEngine" method="get">
+    <fieldset style="width: 300px">
+        <legend> Prig It </legend>
+        <table>
+            <tr>
+                <td>Search Query</td>
+                <td><input type="text" name="userQuery" required="required" /></td>
+            </tr>
+            <tr>
+                <td><input type="submit" value="Search" /></td>
+            </tr>
+        </table>
+    </fieldset>
+</form>
+
+<c:if test="${empty searchResults}">
+ 			<h3>No Single Movie Result.</h3>
+</c:if>
+<c:if test="${!empty searchResults}">
+	<c:forEach items="${searchResults}" var="result">
+	
+		<p><br>
+			<a href="${result}">${result}</a>
+		</p>
+	
+	</c:forEach>
+</c:if>
+
+
+</body>
+</html>

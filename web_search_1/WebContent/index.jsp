@@ -1,0 +1,95 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+        <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+        
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Search Engine</title>
+	<style>
+			table, tr, td, {
+				border-collapse: collapse;
+				border: 1px solid #eee;
+				text-align: center;
+			}
+			form {
+				display: inline-block;
+    			text-align: center;
+			}
+			
+			html{
+				font-family: 'Century Gothic', CenturyGothic, AppleGothic, sans-serif;
+				background: #444;
+			    color: #eee;
+			    text-align: center;
+			}
+			a{
+				text-decoration:none;
+				color:#39f;
+				text-align: center;
+			}
+			
+			#simpleSearch, #simpleSearch tr, #simpleSearch td{
+				border:none;
+				text-align: center;
+			}
+
+
+
+		</style>
+</head>
+<body>
+
+<h2> Search Engine</h2>
+
+<c:if test="${empty init}">
+ 			<h3>Initialize Search</h3>
+ 			<form action="searchEngine" method="get">
+ 			<input type="hidden" name="userQuery" value="">
+			    <fieldset style="width: 300px">
+			        <legend> Init </legend>
+			        <table>
+			            <tr>
+			                <td><input type="submit" value="Start" /></td>
+			            </tr>
+			        </table>
+			    </fieldset>
+			</form>
+</c:if>
+
+
+<c:if test="${!empty init}">
+<form action="searchEngine" method="get">
+    <fieldset style="width: 300px">
+        <legend> Prig It </legend>
+        <table>
+            <tr>
+                <td>Search Query</td>
+                <td><input type="text" name="userQuery" required="required" /></td>
+            </tr>
+            <tr>
+                <td><input type="submit" value="Search" /></td>
+            </tr>
+        </table>
+    </fieldset>
+</form>
+
+</c:if>
+
+<c:if test="${!empty searchResults}">
+	<c:forEach items="${searchResults}" var="result">
+	
+		<p><br>
+			<a href="${result}">${result}</a>
+		</p>
+	
+	</c:forEach>
+</c:if>
+
+
+
+
+
+</body>
+</html>

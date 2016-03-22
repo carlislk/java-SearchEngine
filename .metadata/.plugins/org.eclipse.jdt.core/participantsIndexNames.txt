@@ -1,0 +1,3 @@
+INDEX VERSION 1.126
+/home/carlislk/Documents/CS121/search_1/.metadata/.plugins/org.eclipse.jst.jsp.core/jspsearch/3069022632.index
+/web_search_1/src
